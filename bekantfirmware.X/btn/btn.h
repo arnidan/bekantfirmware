@@ -8,7 +8,9 @@ typedef enum {
     INPUT_DOWN,
     INPUT_MEM_UP,
     INPUT_MEM_DOWN,
-    INPUT_SAVE,
+    INPUT_SAVE_UP,
+    INPUT_SAVE_DOWN,
+    INPUT_PRESSED, // a button is down but the gesture is not known yet
 } INPUT_t;
 
 void btn_init(void);

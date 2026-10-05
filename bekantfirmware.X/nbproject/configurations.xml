@@ -11,6 +11,7 @@
       </logicalFolder>
       <logicalFolder name="btn" displayName="btn" projectFiles="true">
         <itemPath>btn/btn.h</itemPath>
+        <itemPath>btn/gesture.h</itemPath>
       </logicalFolder>
       <logicalFolder name="lin" displayName="lin" projectFiles="true">
         <itemPath>lin/lin_d.h</itemPath>
@@ -32,6 +33,7 @@
       </logicalFolder>
       <logicalFolder name="btn" displayName="btn" projectFiles="true">
         <itemPath>btn/btn.c</itemPath>
+        <itemPath>btn/gesture.c</itemPath>
       </logicalFolder>
       <logicalFolder name="lin" displayName="lin" projectFiles="true">
         <itemPath>lin/lin_d.c</itemPath>

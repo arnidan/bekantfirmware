@@ -1,6 +1,7 @@
 
 
 #include "btn.h"
+#include "gesture.h"
 #include <pic.h>
 #include <stdbool.h>       /* For true/false definition */
 #include <stdint.h>        /* For uint8_t definition */
@@ -17,7 +18,6 @@ typedef union {
 } ButtonState_t;
 
 #define PRESSED(b) (!b)
-#define RELEASED(b) (b)
 #define BUTTON_CHANGE(a, b) ((a.UP != b.UP) || (a.DOWN != b.DOWN))
 
 typedef struct {
@@ -55,103 +55,6 @@ bool btn_debounce(ButtonState_t now_btn) {
     }
 }
 
-bool btn_debounce(ButtonState_t now_btn);
-
-typedef struct {
-    uint8_t save_hold;
-    INPUT_t state;
-} InputState_t;
-
-// Debounced input comes in at frequency Timer2 / DEBOUNCE_THRESHOLD
-// 4000 Hz / 200 = 20 Hz
-//   0.05 sec * 60 = 3 sec to hold SAVE gesture
-#define SAVE_HOLD_THRESHOLD 60
-
-INPUT_t btn_gesture(ButtonState_t btn) {
-    static InputState_t input = {
-        .save_hold = 0,
-        .state = INPUT_IDLE,
-    };
-
-    switch (input.state) {
-        case INPUT_IDLE:
-            if (PRESSED(btn.UP) && RELEASED(btn.DOWN)) {
-                input.state = INPUT_UP;
-            } else if (RELEASED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_DOWN;
-            } else if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.save_hold++;
-                if (input.save_hold >= SAVE_HOLD_THRESHOLD) {
-                    input.save_hold = 0;
-                    input.state = INPUT_SAVE;
-                } else {
-                    input.state = INPUT_IDLE;
-                }
-            } else  { // both RELEASED
-                input.state = INPUT_IDLE;
-            }
-            break;
-            
-        case INPUT_SAVE:
-            if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_SAVE;
-            } else {
-                input.state = INPUT_IDLE;
-            }
-            break;
-            
-        case INPUT_UP:
-            if (PRESSED(btn.UP) && RELEASED(btn.DOWN)) {
-                input.state = INPUT_UP;
-            } else if (RELEASED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_DOWN;
-            } else if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_MEM_UP;
-            } else  { // both RELEASED
-                input.state = INPUT_IDLE;
-            }
-            break;
-            
-        case INPUT_DOWN:
-            if (PRESSED(btn.UP) && RELEASED(btn.DOWN)) {
-                input.state = INPUT_UP;
-            } else if (RELEASED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_DOWN;
-            } else if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_MEM_DOWN;
-            } else  { // both RELEASED
-                input.state = INPUT_IDLE;
-            }
-            break;
-            
-        case INPUT_MEM_UP:
-            if (PRESSED(btn.UP) && RELEASED(btn.DOWN)) {
-                input.state = INPUT_MEM_UP;
-            } else if (RELEASED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_DOWN;
-            } else if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_MEM_UP;
-            } else  { // both RELEASED
-                input.state = INPUT_IDLE;
-            }
-            break;
-            
-        case INPUT_MEM_DOWN:
-            if (PRESSED(btn.UP) && RELEASED(btn.DOWN)) {
-                input.state = INPUT_UP;
-            } else if (RELEASED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_MEM_DOWN;
-            } else if (PRESSED(btn.UP) && PRESSED(btn.DOWN)) {
-                input.state = INPUT_MEM_DOWN;
-            } else  { // both RELEASED
-                input.state = INPUT_IDLE;
-            }
-            break;
-    }
-    
-    return input.state;
-}
-
 void (*btn_report_gesture)(INPUT_t gesture);
 
 void btn_timer() {
@@ -160,7 +63,8 @@ void btn_timer() {
     ButtonState_t button_state = (ButtonState_t)PORTBbits;
 
     if (btn_debounce(button_state)) {
-        INPUT_t input = btn_gesture(button_state);
+        INPUT_t input = btn_gesture(PRESSED(button_state.UP),
+                PRESSED(button_state.DOWN));
 
         if (input != last_input) {
             last_input = input;

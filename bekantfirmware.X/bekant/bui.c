@@ -4,7 +4,7 @@
 
 #include "bui.h"
 #include "bctrl.h"
-#include <stdlib.h> // abs()
+#include <stdbool.h>
 
 typedef enum {
     BUI_STOP,
@@ -30,7 +30,7 @@ __eeprom BUI_saved_t saved = {
     .low_pos = 0x0636
 };
 
-void bui_save_pos(int16_t save_pos);
+void bui_save_pos(bool upper, int16_t save_pos);
 
 /**
  * Initialize from stored position values.
@@ -59,50 +59,33 @@ void bui_input(INPUT_t input) {
             } else if (input == INPUT_MEM_DOWN && cur_pos > low_pos) {
                 bui_state = BUI_MEM_DOWN;
                 bctrl_set_target(BCTRL_DOWN);
-            } else if (input == INPUT_SAVE) {
-                bui_save_pos(cur_pos);
+            } else if (input == INPUT_SAVE_UP) {
+                bui_save_pos(true, cur_pos);
+            } else if (input == INPUT_SAVE_DOWN) {
+                bui_save_pos(false, cur_pos);
             }
             break;
 
         case BUI_UP:
-            if (input == INPUT_MEM_UP && cur_pos < high_pos) {
-                bui_state = BUI_MEM_UP;
-            } else if (input == INPUT_IDLE) {
+            if (input != INPUT_UP) {
                 bui_state = BUI_STOP;
                 bctrl_set_target(BCTRL_STOP);
-            } else if (input == INPUT_DOWN) {
-                bui_state = BUI_DOWN;
-                bctrl_set_target(BCTRL_DOWN);
             }
             break;
 
         case BUI_DOWN:
-            if (input == INPUT_MEM_DOWN && cur_pos > low_pos) {
-                bui_state = BUI_MEM_DOWN;
-            } else if (input == INPUT_IDLE) {
+            if (input != INPUT_DOWN) {
                 bui_state = BUI_STOP;
                 bctrl_set_target(BCTRL_STOP);
-            } else if (input == INPUT_UP) {
-                bui_state = BUI_UP;
-                bctrl_set_target(BCTRL_UP);
             }
             break;
 
         case BUI_MEM_UP:
-            if (input == INPUT_UP) {
-                bui_state = BUI_UP;
-            } else if (input == INPUT_DOWN) {
-                bui_state = BUI_DOWN;
-                bctrl_set_target(BCTRL_DOWN); // switch directions
-            }
-            break;
-
         case BUI_MEM_DOWN:
-            if (input == INPUT_UP) {
-                bui_state = BUI_UP;
-                bctrl_set_target(BCTRL_UP); // switch directions
-            } else if (input == INPUT_DOWN) {
-                bui_state = BUI_DOWN;
+            // Any button press cancels the automatic movement
+            if (input == INPUT_PRESSED) {
+                bui_state = BUI_STOP;
+                bctrl_set_target(BCTRL_STOP);
             }
             break;
     }
@@ -136,31 +119,29 @@ void bui_set_pos(int16_t pos) {
 }
 
 /**
- * Store the given save_pos encoder value into persistent memory.
- * Overwrite stored low_pos or high_pos, whichever is closer to save_pos.
+ * Store the given save_pos encoder value into persistent memory
+ * as the upper or lower position.
  * 
  * If the given save_pos looks like an encoder error state (negative),
  * then don't save.
  * 
+ * @param upper true to overwrite the upper position, false for the lower
  * @param save_pos new encoder value to store into persistent memory
  */
-void bui_save_pos(int16_t save_pos) {
+void bui_save_pos(bool upper, int16_t save_pos) {
     if (save_pos < 0) {
         // Encoder value indicates error state
         return;
     }
 
-    int16_t diff_high = abs(high_pos - save_pos);
-    int16_t diff_low = abs(low_pos - save_pos);
-
     // Next time during a MEM move, BUI will send the STOP signal to BCTRL
     // before it reaches the target position, to allow for deceleration.
-    if (diff_low < diff_high) {
-        low_pos = save_pos + BCTRL_DECEL_MARGIN;
-        saved.low_pos = low_pos;
-    } else {
+    if (upper) {
         high_pos = save_pos - BCTRL_DECEL_MARGIN;
         saved.high_pos = high_pos;
+    } else {
+        low_pos = save_pos + BCTRL_DECEL_MARGIN;
+        saved.low_pos = low_pos;
     }
 
     // Click feedback
